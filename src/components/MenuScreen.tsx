@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Play, Grid, Users, Info, Heart } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Play, Grid, Users, Info, Heart, Download } from 'lucide-react';
 
 interface MenuScreenProps {
   player1Name: string;
@@ -17,6 +17,26 @@ export const MenuScreen: React.FC<MenuScreenProps> = ({
   const [p1, setP1] = useState(player1Name);
   const [p2, setP2] = useState(player2Name);
   const [showRules, setShowRules] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    const handler = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const choice = await deferredPrompt.userChoice;
+      if (choice.outcome === 'accepted') {
+        setDeferredPrompt(null);
+      }
+    }
+  };
 
   const handleStart = () => {
     onStartGame(p1 || 'Jogador 1', p2 || 'Jogador 2');
@@ -107,6 +127,16 @@ export const MenuScreen: React.FC<MenuScreenProps> = ({
           <Grid className="w-5 h-5 text-indigo-600" />
           <span>Selecionar Fases</span>
         </button>
+
+        {deferredPrompt && (
+          <button
+            onClick={handleInstallApp}
+            className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-black text-base flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25 active:scale-95 transition-transform cursor-pointer hover:brightness-105 animate-pulse"
+          >
+            <Download className="w-5 h-5 stroke-[2.5]" />
+            <span>📲 Instalar Aplicativo no Celular</span>
+          </button>
+        )}
 
         <button
           onClick={() => setShowRules(!showRules)}

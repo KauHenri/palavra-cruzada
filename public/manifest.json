@@ -1,36 +1,32 @@
 {
-  "id": "/palavra-cruzada/",
-  "name": "Palavras Cruzadas - Duelo Local",
-  "short_name": "Cruzadinha",
+  "id": "cruzadas-duelo-local-v2",
+  "name": "Palavras Cruzadas - Duelo",
+  "short_name": "Cruzadas",
   "description": "Jogo de palavras cruzadas diretas para dois jogadores",
-  "start_url": "/palavra-cruzada/",
-  "scope": "/palavra-cruzada/",
+  "start_url": "https://kauhenri.github.io/palavra-cruzada/",
+  "scope": "https://kauhenri.github.io/palavra-cruzada/",
   "display": "standalone",
   "background_color": "#c8dcf0",
   "theme_color": "#2563eb",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "pwa-192x192.png",
+      "src": "https://kauhenri.github.io/palavra-cruzada/pwa-192x192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
-      "src": "pwa-512x512.png",
+      "src": "https://kauhenri.github.io/palavra-cruzada/pwa-512x512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
-      "src": "pwa-maskable-512x512.png",
+      "src": "https://kauhenri.github.io/palavra-cruzada/pwa-maskable-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
-    },
-    {
-      "src": "icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
     }
   ]
 }
