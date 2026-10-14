@@ -1,10 +1,13 @@
-const CACHE_NAME = 'palavra-cruzada-v1';
+const CACHE_NAME = 'palavra-cruzada-v2';
 
 const STATIC_ASSETS = [
   './',
   './index.html',
   './manifest.json',
-  './icon.svg'
+  './icon.svg',
+  './pwa-192x192.png',
+  './pwa-512x512.png',
+  './apple-touch-icon.png'
 ];
 
 self.addEventListener('install', (event) => {
