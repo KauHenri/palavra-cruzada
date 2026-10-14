@@ -1,0 +1,19 @@
+{
+  "name": "Palavras Cruzadas - Duelo Local",
+  "short_name": "Cruzadinha",
+  "description": "Jogo de palavras cruzadas diretas para dois jogadores",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#c8dcf0",
+  "theme_color": "#2563eb",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "192x192 512x512 any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
