@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { LEVELS } from './data/levels';
 import { useCrosswordGame } from './hooks/useCrosswordGame';
 import { Header } from './components/Header';
@@ -6,6 +6,7 @@ import { ScoreBoard } from './components/ScoreBoard';
 import { CrosswordGrid } from './components/CrosswordGrid';
 import { LetterRack } from './components/LetterRack';
 import { WordCompleteBanner } from './components/WordCompleteBanner';
+import { TurnTimeoutBanner } from './components/TurnTimeoutBanner';
 import { GameOverModal } from './components/GameOverModal';
 import { SettingsModal } from './components/SettingsModal';
 import { LevelSelect } from './components/LevelSelect';
@@ -17,6 +18,84 @@ export function App() {
   const [view, setView] = useState<ViewMode>('menu');
   const [currentLevelId, setCurrentLevelId] = useState<number>(1);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [exitToast, setExitToast] = useState(false);
+
+  // References to keep event listeners always synced with current state
+  const viewRef = useRef<ViewMode>(view);
+  const isSettingsOpenRef = useRef<boolean>(isSettingsOpen);
+  const lastBackPressRef = useRef<number>(0);
+
+  useEffect(() => {
+    viewRef.current = view;
+  }, [view]);
+
+  useEffect(() => {
+    isSettingsOpenRef.current = isSettingsOpen;
+  }, [isSettingsOpen]);
+
+  // Set up history navigation stack to prevent Android back button from closing the app
+  useEffect(() => {
+    // Replace initial state with root, then push menu so there's always history behind it
+    window.history.replaceState({ appView: 'root' }, '');
+    window.history.pushState({ appView: 'menu' }, '');
+
+    const onPopState = (e: PopStateEvent) => {
+      // 1. If Settings Modal is open, back button simply closes the modal
+      if (isSettingsOpenRef.current) {
+        setIsSettingsOpen(false);
+        return;
+      }
+
+      const state = e.state;
+
+      // 2. If back reaches root (pressed back on menu)
+      if (!state || state.appView === 'root') {
+        const now = Date.now();
+        if (now - lastBackPressRef.current < 2000) {
+          // Double tap back within 2s -> let Android close/exit the app
+          return;
+        } else {
+          lastBackPressRef.current = now;
+          // Keep user in menu and show toast
+          window.history.pushState({ appView: 'menu' }, '');
+          setView('menu');
+          setExitToast(true);
+          setTimeout(() => setExitToast(false), 2000);
+          return;
+        }
+      }
+
+      // 3. Normal screen back navigation
+      if (state.appView === 'menu' || state.appView === 'level_select' || state.appView === 'game') {
+        setView(state.appView);
+      } else {
+        setView('menu');
+      }
+    };
+
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  // Safe navigation helper that pushes state to history
+  const navigateTo = (nextView: ViewMode) => {
+    window.history.pushState({ appView: nextView }, '');
+    setView(nextView);
+  };
+
+  const handleOpenSettings = () => {
+    window.history.pushState({ appView: view, modal: 'settings' }, '');
+    setIsSettingsOpen(true);
+  };
+
+  const handleCloseSettings = () => {
+    if (isSettingsOpen) {
+      setIsSettingsOpen(false);
+      if (window.history.state?.modal === 'settings') {
+        window.history.back();
+      }
+    }
+  };
 
   // Stored player names
   const [p1Name, setP1Name] = useState(() => {
@@ -37,17 +116,22 @@ export function App() {
     unconfirmedPlacements,
     floatScores,
     wordCompleteBanner,
+    turnTimeoutBanner,
     isGameOver,
     shakeCells,
+    turnTimeLimit,
+    timeLeft,
     handleSelectHandTile,
     handleCellClick,
     confirmTurn,
     initGame,
-    updatePlayerNames
+    updatePlayerNames,
+    updateTurnTimeLimit
   } = useCrosswordGame({
     level: currentLevel,
     initialPlayer1Name: p1Name,
-    initialPlayer2Name: p2Name
+    initialPlayer2Name: p2Name,
+    isPaused: isSettingsOpen || view !== 'game'
   });
 
   // Save names to local storage
@@ -61,12 +145,12 @@ export function App() {
 
   const handleStartFromMenu = (newP1: string, newP2: string) => {
     handleUpdateNames(newP1, newP2);
-    setView('game');
+    navigateTo('game');
   };
 
   const handleSelectLevel = (levelId: number) => {
     setCurrentLevelId(levelId);
-    setView('game');
+    navigateTo('game');
   };
 
   const handleNextLevel = () => {
@@ -75,7 +159,6 @@ export function App() {
       setCurrentLevelId(nextId);
     }
   };
-
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#c8dcf0] via-[#dbeafe] to-[#e8f1fb] text-slate-800 flex flex-col justify-between relative overflow-hidden select-none">
@@ -98,7 +181,8 @@ export function App() {
             player1Name={p1Name}
             player2Name={p2Name}
             onStartGame={handleStartFromMenu}
-            onOpenLevelSelect={() => setView('level_select')}
+            onOpenLevelSelect={() => navigateTo('level_select')}
+            onOpenSettings={handleOpenSettings}
           />
         )}
 
@@ -107,7 +191,7 @@ export function App() {
             levels={LEVELS}
             currentLevelId={currentLevelId}
             onSelectLevel={handleSelectLevel}
-            onBackToMenu={() => setView('menu')}
+            onBackToMenu={() => window.history.back()}
           />
         )}
 
@@ -116,12 +200,17 @@ export function App() {
             {/* Top Navigation */}
             <Header
               title={`${currentLevel.title}: ${currentLevel.subtitle}`}
-              onBack={() => setView('level_select')}
-              onOpenSettings={() => setIsSettingsOpen(true)}
+              onBack={() => window.history.back()}
+              onOpenSettings={handleOpenSettings}
             />
 
-            {/* Scoreboard */}
-            <ScoreBoard players={players} currentTurn={currentTurn} />
+            {/* Scoreboard with Turn Timer */}
+            <ScoreBoard
+              players={players}
+              currentTurn={currentTurn}
+              timeLeft={timeLeft}
+              turnTimeLimit={turnTimeLimit}
+            />
 
             {/* The Swedish Crossword Grid */}
             <CrosswordGrid
@@ -151,6 +240,11 @@ export function App() {
               />
             )}
 
+            {/* Turn timeout toast */}
+            {turnTimeoutBanner && (
+              <TurnTimeoutBanner playerName={turnTimeoutBanner.playerName} />
+            )}
+
             {/* Game Over Modal */}
             {isGameOver && (
               <GameOverModal
@@ -158,7 +252,7 @@ export function App() {
                 hasNextLevel={currentLevelId < LEVELS.length}
                 onNextLevel={handleNextLevel}
                 onRestart={initGame}
-                onGoToMenu={() => setView('level_select')}
+                onGoToMenu={() => navigateTo('level_select')}
               />
             )}
 
@@ -167,15 +261,27 @@ export function App() {
               <SettingsModal
                 player1Name={p1Name}
                 player2Name={p2Name}
+                turnTimeLimit={turnTimeLimit}
                 onUpdateNames={handleUpdateNames}
+                onUpdateTurnTimeLimit={updateTurnTimeLimit}
                 onRestartLevel={initGame}
-                onGoToMenu={() => setView('menu')}
-                onClose={() => setIsSettingsOpen(false)}
+                onGoToMenu={() => {
+                  setIsSettingsOpen(false);
+                  navigateTo('menu');
+                }}
+                onClose={handleCloseSettings}
               />
             )}
           </main>
         )}
       </div>
+
+      {/* Android double-back-to-exit Toast Notification */}
+      {exitToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900/90 text-white px-4 py-2 rounded-full text-xs font-bold shadow-xl animate-pop-in pointer-events-none border border-slate-700">
+          Toque em voltar novamente para sair
+        </div>
+      )}
     </div>
   );
 }

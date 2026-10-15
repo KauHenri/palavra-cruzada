@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Grid, Users, Info, Heart, Download } from 'lucide-react';
+import { Play, Grid, Users, Info, Heart, Download, Settings } from 'lucide-react';
 
 interface MenuScreenProps {
   player1Name: string;
   player2Name: string;
   onStartGame: (p1Name: string, p2Name: string) => void;
   onOpenLevelSelect: () => void;
+  onOpenSettings?: () => void;
 }
 
 export const MenuScreen: React.FC<MenuScreenProps> = ({
   player1Name,
   player2Name,
   onStartGame,
-  onOpenLevelSelect
+  onOpenLevelSelect,
+  onOpenSettings
 }) => {
   const [p1, setP1] = useState(player1Name);
   const [p2, setP2] = useState(player2Name);
@@ -43,9 +45,22 @@ export const MenuScreen: React.FC<MenuScreenProps> = ({
   };
 
   return (
-    <div className="w-full max-w-md mx-auto min-h-screen px-4 py-6 flex flex-col justify-between items-center text-center">
+    <div className="w-full max-w-md mx-auto min-h-screen px-4 py-4 flex flex-col justify-between items-center text-center relative">
+      {/* Top Bar with Settings */}
+      <div className="w-full flex justify-end">
+        {onOpenSettings && (
+          <button
+            onClick={onOpenSettings}
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-white/80 backdrop-blur shadow-sm active:scale-95 transition-transform text-sky-600 border border-sky-100 cursor-pointer"
+            aria-label="Configurações"
+          >
+            <Settings className="w-5 h-5 stroke-[2.2]" />
+          </button>
+        )}
+      </div>
+
       {/* Header / Hero */}
-      <div className="w-full flex flex-col items-center pt-4">
+      <div className="w-full flex flex-col items-center pt-1">
         {/* Logo / Badge */}
         <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-blue-500 to-indigo-600 text-white shadow-xl shadow-blue-500/30 flex items-center justify-center mb-3 border-2 border-white/60">
           <div className="grid grid-cols-2 gap-1 p-2">

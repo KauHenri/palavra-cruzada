@@ -7,6 +7,8 @@ interface UseCrosswordGameProps {
   level: LevelDefinition;
   initialPlayer1Name?: string;
   initialPlayer2Name?: string;
+  initialTurnTimeLimit?: number;
+  isPaused?: boolean;
   onGameOver?: (winner: Player | 'tie', p1: Player, p2: Player) => void;
 }
 
@@ -14,6 +16,8 @@ export function useCrosswordGame({
   level,
   initialPlayer1Name = 'Jogador 1',
   initialPlayer2Name = 'Jogador 2',
+  initialTurnTimeLimit,
+  isPaused = false,
   onGameOver
 }: UseCrosswordGameProps) {
   // Players state
@@ -47,6 +51,15 @@ export function useCrosswordGame({
   const [isGameOver, setIsGameOver] = useState(false);
   const [completedWordIds, setCompletedWordIds] = useState<Set<string>>(new Set());
   const [shakeCells, setShakeCells] = useState<{ row: number; col: number }[]>([]);
+
+  // Turn Timer state
+  const [turnTimeLimit, setTurnTimeLimit] = useState<number>(() => {
+    if (initialTurnTimeLimit !== undefined) return initialTurnTimeLimit;
+    const saved = localStorage.getItem('pc_turn_timer');
+    return saved !== null ? parseInt(saved, 10) : 90;
+  });
+  const [timeLeft, setTimeLeft] = useState<number>(turnTimeLimit);
+  const [turnTimeoutBanner, setTurnTimeoutBanner] = useState<{ playerName: string } | null>(null);
 
   // Initialize or reset game when level changes
   const initGame = useCallback(() => {
@@ -106,7 +119,9 @@ export function useCrosswordGame({
     setIsGameOver(false);
     setCompletedWordIds(new Set());
     setShakeCells([]);
-  }, [level]);
+    setTimeLeft(turnTimeLimit);
+    setTurnTimeoutBanner(null);
+  }, [level, turnTimeLimit]);
 
   useEffect(() => {
     initGame();
@@ -394,8 +409,76 @@ export function useCrosswordGame({
     } else {
       // Switch turn to the other player!
       setCurrentTurn(prev => (prev === 'p1' ? 'p2' : 'p1'));
+      setTimeLeft(turnTimeLimit);
     }
   };
+
+  // Handle turn timeout when timer hits 0
+  const handleTurnTimeout = useCallback(() => {
+    // Revert unconfirmed placements from grid
+    setGrid(prev =>
+      prev.map(r =>
+        r.map(c => {
+          if (c.type === 'letter' && !c.isLocked && c.currentLetter !== null) {
+            return { ...c, currentLetter: null };
+          }
+          return c;
+        })
+      )
+    );
+    setUnconfirmedPlacements([]);
+    setSelectedHandIndex(null);
+    setSelectedCell(null);
+
+    soundManager.playTimeout();
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      try {
+        navigator.vibrate([150, 80, 150]);
+      } catch (_) {}
+    }
+
+    const timedOutPlayer = players[currentTurn].name;
+    setTurnTimeoutBanner({ playerName: timedOutPlayer });
+    setTimeout(() => setTurnTimeoutBanner(null), 2500);
+
+    setCurrentTurn(prev => (prev === 'p1' ? 'p2' : 'p1'));
+    setTimeLeft(turnTimeLimit);
+  }, [players, currentTurn, turnTimeLimit]);
+
+  // Turn Countdown timer tick effect
+  useEffect(() => {
+    if (turnTimeLimit <= 0 || isGameOver || isPaused) {
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          return 0;
+        }
+        if (prev <= 6 && prev > 1) {
+          soundManager.playTick();
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [turnTimeLimit, isGameOver, isPaused, currentTurn]);
+
+  // Trigger timeout handler when timeLeft reaches 0
+  useEffect(() => {
+    if (turnTimeLimit > 0 && timeLeft === 0 && !isGameOver && !isPaused) {
+      handleTurnTimeout();
+    }
+  }, [timeLeft, turnTimeLimit, isGameOver, isPaused, handleTurnTimeout]);
+
+  // Update timer limit setting
+  const updateTurnTimeLimit = useCallback((newLimit: number) => {
+    setTurnTimeLimit(newLimit);
+    setTimeLeft(newLimit);
+    localStorage.setItem('pc_turn_timer', newLimit.toString());
+  }, []);
 
   // Update player names
   const updatePlayerNames = useCallback((p1Name: string, p2Name: string) => {
@@ -422,12 +505,16 @@ export function useCrosswordGame({
     unconfirmedPlacements,
     floatScores,
     wordCompleteBanner,
+    turnTimeoutBanner,
     isGameOver,
     shakeCells,
+    turnTimeLimit,
+    timeLeft,
     handleSelectHandTile,
     handleCellClick,
     confirmTurn,
     initGame,
-    updatePlayerNames
+    updatePlayerNames,
+    updateTurnTimeLimit
   };
 }
